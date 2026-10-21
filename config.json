@@ -2,8 +2,9 @@
   "deadline_grace_days": 0,
   "extra_prefixes": [],
   "subpage_keywords": "review|committee|call|cfp|\\bpc\\b|volunteer|join|participat|get-involved",
-  "reviewer_keywords": "reviewer|reviewing|review for|program committee|\\bPC member|\\bPC\\b|serve as a review",
+  "reviewer_keywords": "reviewers?\\b(?!ing period)|serv(?:e|ing) (?:as|on) (?:a |the )?(?:reviewer|PC|program committee)|program committee|PC members?|interested in reviewing|review for (?:the|our|this)|self-?nominat",
   "max_subpages": 6,
-  "context_chars": 400,
-  "workers": 16
+  "context_chars": 250,
+  "workers": 16,
+  "reviewer_anchor": "review|program committee|\\bPC\\b|area chair|\\bAC\\b|self-?nominat|committee"
 }

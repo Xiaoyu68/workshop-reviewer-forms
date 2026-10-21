@@ -39,7 +39,11 @@ API = "https://api2.openreview.net"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) workshop-reviewer-forms/1.0"
 
 FORM_RE = re.compile(
-    r"https?://(?:forms\.gle/[\w-]+|docs\.google\.com/forms/(?:u/\d+/)?d/(?:e/)?[\w-]+)")
+    r"https?://(?:forms\.gle/[\w-]+|docs\.google\.com/forms/(?:u/\d+/)?d/(e/)?([\w-]+))")
+SCRIPT_RE = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
+# Link text that says nothing about what the form is for.
+GENERIC_ANCHOR = {"here", "this", "form", "link", "click", "sign", "up", "fill", "out", "in", "the",
+                  "google", "please", "apply", "now", "our", "a", "↗", "→"}
 HREF_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.I | re.S)
 TAG_RE = re.compile(r"<[^>]+>")
 DEADLINE_RE = re.compile(r"Submission Deadline:\s*([A-Z][a-z]{2} \d{1,2} \d{4})")
@@ -172,9 +176,51 @@ def normalize(page):
     return urllib.parse.unquote(html.unescape(page))
 
 
-def context_of(page, start, end, width):
-    snippet = page[max(0, start - width):end + width]
-    return re.sub(r"\s+", " ", TAG_RE.sub(" ", snippet)).strip()
+def text_of(fragment):
+    return re.sub(r"\s+", " ", TAG_RE.sub(" ", fragment)).strip()
+
+
+def canonical_form(m):
+    # docs.google.com/forms/d/e/<id> without /viewform is a 404; always link the viewform page.
+    if m.group(0).startswith(("http://forms.gle", "https://forms.gle")):
+        return m.group(0).replace("http://", "https://")
+    return f"https://docs.google.com/forms/d/{m.group(1) or ''}{m.group(2)}/viewform"
+
+
+def label(anchor, before, cfg):
+    """'reviewer' or 'other', judged by the link's own text first, then the sentence before it."""
+    words = re.findall(r"[\w↗→]+", anchor.lower())
+    if words and not set(words) <= GENERIC_ANCHOR:
+        return "reviewer" if re.search(cfg["reviewer_anchor"], anchor, re.I) else "other"
+    return "reviewer" if re.search(cfg["reviewer_keywords"], before[-cfg["context_chars"]:], re.I) else "other"
+
+
+def form_links(page, cfg):
+    """Yield (form_url, kind, context) for every Google Form linked or mentioned on a page."""
+    page = SCRIPT_RE.sub(" ", normalize(page))
+    covered = []
+    for a in HREF_RE.finditer(page):
+        m = FORM_RE.search(a.group(1))
+        if not m:
+            continue
+        covered.append(a.span())
+        anchor = text_of(a.group(2))[:120]
+        before = text_of(page[max(0, a.start() - 3000):a.start()])
+        yield canonical_form(m), label(anchor, before, cfg), f"{before[-200:]} [{anchor}]"
+    for m in FORM_RE.finditer(page):
+        if any(s <= m.start() < e for s, e in covered):
+            continue
+        before = text_of(page[max(0, m.start() - 3000):m.start()])
+        yield canonical_form(m), label("", before, cfg), f"{before[-200:]} [{m.group(0)}]"
+
+
+def form_is_open(url):
+    """False when Google says the form is closed or it no longer exists."""
+    try:
+        body, final = get(url)
+    except Exception:  # noqa: BLE001 - 404 / gone
+        return False
+    return "closedform" not in final and "no longer accepting responses" not in body.lower()
 
 
 def same_site(base, url):
@@ -193,7 +239,6 @@ def crawl(v, cfg):
     if not site:
         return [], "no website"
     sub_re = re.compile(cfg["subpage_keywords"], re.I)
-    rev_re = re.compile(cfg["reviewer_keywords"], re.I)
     found, err = {}, ""
     try:
         home, final = get(site)
@@ -214,14 +259,10 @@ def crawl(v, cfg):
         except Exception:  # noqa: BLE001
             err = "some subpages failed"
     for url, raw in pages:
-        page = normalize(raw)
-        for m in FORM_RE.finditer(page):
-            form = m.group(0)
-            ctx = context_of(page, m.start(), m.end(), cfg["context_chars"])
-            kind = "reviewer" if rev_re.search(ctx) else "other"
+        for form, kind, ctx in form_links(raw, cfg):
             prev = found.get(form)
             if not prev or (prev["kind"] == "other" and kind == "reviewer"):
-                found[form] = {"form": form, "kind": kind, "page": url, "context": ctx[:300]}
+                found[form] = {"form": form, "kind": kind, "page": url, "context": ctx}
     return list(found.values()), err
 
 
@@ -238,7 +279,13 @@ def load_seen(previous):
                 seen.setdefault(r["form"], r["first_seen"])
         except Exception as e:  # noqa: BLE001 - a missing previous run just means everything is new
             print(f"no previous data from {previous}: {type(e).__name__}", file=sys.stderr)
-    return seen
+    # Older runs stored docs.google.com links without /viewform.
+    canon = {}
+    for form, first in seen.items():
+        m = FORM_RE.match(form)
+        key = canonical_form(m) if m else form
+        canon[key] = min(first, canon.get(key, first))
+    return canon
 
 
 def notify(n):
@@ -310,6 +357,11 @@ def main():
                 if dls:
                     r["deadline"], r["status"] = max(dls), "open"
     rows = [r for r in by_form.values() if args.all or r["kind"] == "reviewer"]
+    # Drop forms Google reports as closed or deleted.
+    with cf.ThreadPoolExecutor(cfg["workers"]) as pool:
+        is_open = list(pool.map(lambda r: form_is_open(r["form"]), rows))
+    closed = sum(not o for o in is_open)
+    rows = [r for r, o in zip(rows, is_open) if o]
 
     seen = load_seen(args.previous)
     first_run = not seen
@@ -333,11 +385,11 @@ def main():
 
     summary = {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
                "today": today.isoformat(), "venues": len(venues), "sites": len(sites),
-               "unreachable": failures}
+               "unreachable": failures, "closed": closed}
     page = write_site(rows, summary)
     n_rev = sum(r["kind"] == "reviewer" for r in rows)
     n_new = sum(r["new"] and r["kind"] == "reviewer" for r in rows)
-    print(f"{n_rev} reviewer forms ({n_new} new) from {len(sites)} sites, "
+    print(f"{n_rev} open reviewer forms ({n_new} new, {closed} closed ones dropped) from {len(sites)} sites, "
           f"{failures} unreachable -> {page}", file=sys.stderr)
 
     if n_new and not args.no_notify and sys.platform == "darwin":
