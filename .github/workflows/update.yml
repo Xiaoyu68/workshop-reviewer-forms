@@ -31,4 +31,5 @@ jobs:
       - name: Find reviewer forms
         run: python3 find_forms.py --no-notify --no-open ${SITE_URL:+--previous "$SITE_URL/data.json"}
       - name: Deploy to Vercel
-        run: npx --yes vercel@50.17.1 deploy site --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
+        working-directory: site
+        run: npx --yes vercel@50.17.1 deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
