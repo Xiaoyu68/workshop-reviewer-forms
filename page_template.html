@@ -1,112 +1,127 @@
-z m<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Workshop Reviewer Calls</title>
+<title>Workshop Reviewer Calls for Vivian Wang</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
 <style>
-/* Layout: a single reading column; each call is a row with its deadline as a
-   left-hand date stub, like an entry in a submission calendar. */
+/* Layout: one soft column of rounded cards; each call carries its workshop date
+   as a little pastel ticket on the left, like a sticker on a planner page. */
 :root {
-  --bg: #f5f7f8;
+  --bg: #fff6f8;
   --surface: #ffffff;
-  --ink: #17232b;
-  --muted: #5b6b75;
-  --line: #dde3e7;
-  --accent: #0f6a73;
+  --ink: #3d2a40;
+  --muted: #8b7490;
+  --line: #f4dbe5;
+  --accent: #d94f86;
   --accent-ink: #ffffff;
-  --accent-soft: #e2f0f1;
-  --soon: #b4420f;
-  --soon-soft: #fbe9df;
-  --new: #6b3fa0;
-  --new-soft: #efe7f8;
-  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --accent-soft: #ffe4ef;
+  --soon: #d9692a;
+  --soon-soft: #ffecdc;
+  --new: #7b5ad6;
+  --new-soft: #eee7ff;
+  --shadow: 0 6px 18px -10px rgba(217, 79, 134, 0.35);
+  --font-display: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1619; --surface: #162126; --ink: #e3eaed; --muted: #92a3ab; --line: #263439;
-    --accent: #4fb3bb; --accent-ink: #062226; --accent-soft: #15353a;
-    --soon: #f08a55; --soon-soft: #3a2116; --new: #b896e6; --new-soft: #2b2140;
+    --bg: #1e1621; --surface: #2a1f2e; --ink: #f7e9f2; --muted: #bba4c0; --line: #3e2e44;
+    --accent: #ff8fb8; --accent-ink: #2b0f1c; --accent-soft: #4a2338;
+    --soon: #ffb27a; --soon-soft: #45291a; --new: #c4abff; --new-soft: #352a52;
+    --shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f1619; --surface: #162126; --ink: #e3eaed; --muted: #92a3ab; --line: #263439;
-  --accent: #4fb3bb; --accent-ink: #062226; --accent-soft: #15353a;
-  --soon: #f08a55; --soon-soft: #3a2116; --new: #b896e6; --new-soft: #2b2140;
+  --bg: #1e1621; --surface: #2a1f2e; --ink: #f7e9f2; --muted: #bba4c0; --line: #3e2e44;
+  --accent: #ff8fb8; --accent-ink: #2b0f1c; --accent-soft: #4a2338;
+  --soon: #ffb27a; --soon-soft: #45291a; --new: #c4abff; --new-soft: #352a52;
+  --shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: 15px/1.5 var(--font-body);
+  font: 15px/1.55 var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 32px 64px;
+  padding-block: 36px 64px;
 }
-.wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-header { display: flex; flex-direction: column; gap: 6px; }
-h1 { font: 600 clamp(26px, 4vw, 34px)/1.15 var(--font-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-.lede { margin: 0; color: var(--muted); max-width: 65ch; }
-.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.4 var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
-.stats b { color: var(--ink); font-weight: 500; }
+.wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-direction: column; gap: 8px; }
+.hello { font: 600 14px/1 var(--font-display); color: var(--accent); letter-spacing: 0.02em; }
+h1 { font: 600 clamp(28px, 5vw, 40px)/1.12 var(--font-display); margin: 0; text-wrap: balance; }
+h1 .for { display: block; font-size: 0.62em; color: var(--accent); margin-top: 4px; }
+h1 .for::after { content: " \2661"; }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
+.stats b { color: var(--ink); font-weight: 700; }
+.progress { display: flex; flex-direction: column; gap: 6px; background: var(--new-soft); color: var(--new); border-radius: 14px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+.progress .bar { height: 8px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.progress .bar i { display: block; height: 100%; border-radius: inherit; background: var(--new); }
 
 .controls {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
   display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
-  background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line);
+  background: var(--bg); padding-block: 10px;
 }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 .controls input[type="search"], .controls select {
   font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0;
+  border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 14px; min-width: 0;
 }
 .controls input[type="search"] { flex: 1 1 220px; }
 .controls select { flex: 0 1 auto; max-width: 100%; }
-.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
-.toggle input { accent-color: var(--accent); margin: 0; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); margin: 0; width: 16px; height: 16px; }
+:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
 
-.list { display: flex; flex-direction: column; gap: 10px; }
+.list { display: flex; flex-direction: column; gap: 12px; }
 .row {
-  display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 16px; align-items: start;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+  display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 16px; align-items: start;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px 16px;
+  box-shadow: var(--shadow);
 }
-.stub { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
-.stub .day { font-size: 20px; font-weight: 500; line-height: 1.1; }
-.stub .mon { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.stub .left { margin-top: 4px; font-size: 12px; color: var(--accent); }
-.stub.soon .left { color: var(--soon); font-weight: 500; }
-.stub.unknown .day { font-size: 14px; color: var(--muted); }
-.body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.stub {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px;
+  background: var(--accent-soft); color: var(--accent); border-radius: 14px; font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+}
+.stub .mon { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.stub .day { font-size: 26px; font-weight: 600; line-height: 1; color: var(--ink); }
+.stub .left { font: 700 11px/1.2 var(--font-body); text-align: center; }
+.stub.soon { background: var(--soon-soft); color: var(--soon); }
+.stub.unknown { background: var(--new-soft); color: var(--new); }
+.stub.unknown .day { font-size: 13px; color: var(--new); text-align: center; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tag { font: 500 11px/1 var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.tag { font: 700 11px/1 var(--font-body); letter-spacing: 0.03em; padding: 5px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .tag.new { background: var(--new-soft); color: var(--new); }
-.tag.unknown { background: var(--soon-soft); color: var(--soon); }
-.title { font-weight: 600; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+.tag.new::before { content: "\2726 "; }
+.title { font: 600 17px/1.3 var(--font-display); overflow-wrap: anywhere; }
 .title a { color: inherit; text-decoration: none; }
-.title a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.title a:hover { color: var(--accent); }
 .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 details { font-size: 13px; color: var(--muted); }
-details summary { cursor: pointer; width: fit-content; }
-details p { margin: 6px 0 0; padding: 8px 10px; border-left: 2px solid var(--line); overflow-wrap: anywhere; }
+details summary { cursor: pointer; width: fit-content; font-weight: 600; }
+details p { margin: 6px 0 0; padding: 8px 12px; background: var(--bg); border-radius: 12px; overflow-wrap: anywhere; }
 .actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .btn {
   display: inline-block; text-align: center; white-space: nowrap; text-decoration: none;
-  font: 500 14px/1 var(--font-body); padding: 9px 14px; border-radius: 6px;
-  background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent);
+  font: 700 14px/1 var(--font-body); padding: 10px 16px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); border: 1.5px solid var(--accent);
 }
 .btn.ghost { background: transparent; color: var(--accent); }
-.btn:hover { filter: brightness(1.08); }
-.empty { padding: 32px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
-footer { font-size: 13px; color: var(--muted); max-width: 65ch; }
+.btn:hover { filter: brightness(1.06); }
+.empty { padding: 32px 16px; text-align: center; color: var(--muted); border: 2px dashed var(--line); border-radius: 18px; }
+footer { font-size: 13px; color: var(--muted); max-width: 62ch; }
 footer a { color: var(--accent); }
 
 @media (max-width: 600px) {
@@ -114,26 +129,30 @@ footer a { color: var(--accent); }
   .actions { grid-column: 1 / -1; flex-direction: row; }
   .actions .btn { flex: 1; }
 }
-@media (prefers-reduced-motion: no-preference) { .btn { transition: filter .15s; } }
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .row { transition: transform .15s ease, filter .15s; }
+  .row:hover { transform: translateY(-2px); }
+  .progress .bar i { transition: width .4s ease; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Workshop Reviewer Calls</h1>
-    <p class="lede">Google Forms that upcoming workshops use to recruit reviewers, found on each workshop's own website. Only workshops whose paper deadline has not passed are listed.</p>
+    <span class="hello">Happy reviewing!</span>
+    <h1>Workshop Reviewer Calls<span class="for">for Vivian Wang</span></h1>
+    <p class="lede">Reviewer sign-up forms for upcoming workshops, found on each workshop's own website. Every form listed here was still accepting responses when it was last checked.</p>
     <div class="stats" id="stats"></div>
+    <div class="progress" id="progress" hidden></div>
   </header>
 
   <div class="controls" role="search">
     <input type="search" id="q" placeholder="Search title, conference, topic…" aria-label="Search">
     <select id="conf" aria-label="Conference"><option value="">All conferences</option></select>
     <select id="sort" aria-label="Sort">
-      <option value="deadline">Deadline soonest</option>
+      <option value="date">Workshop date soonest</option>
       <option value="found">Recently found</option>
-      <option value="date">Workshop date</option>
     </select>
-    <label class="toggle"><input type="checkbox" id="unknown" checked> No deadline listed</label>
     <label class="toggle"><input type="checkbox" id="newonly"> New only</label>
   </div>
 
@@ -163,60 +182,72 @@ function boot(data) {
     $("list").innerHTML = '<div class="empty">No data yet. Run <code>python3 find_forms.py</code> to build this page.</div>';
     return;
   }
-  // Rows whose deadline passed since the page was generated are dropped here too.
+  // Workshops that have taken place since the page was built are dropped.
   const forms = data.forms
     .filter((r) => r.kind === "reviewer")
     .map((r) => ({ ...r, dl: parse(r.deadline), wd: parse(r.start_date), fs: parse(r.first_seen) }))
-    .filter((r) => !r.dl || daysLeft(r.dl) >= 0);
+    .filter((r) => !r.wd || daysLeft(r.wd) >= 0);
 
   const confs = [...new Set(forms.map((r) => r.conference))].sort();
   $("conf").insertAdjacentHTML("beforeend", confs.map((c) => `<option>${esc(c)}</option>`).join(""));
 
   const gen = new Date(data.generated);
   $("stats").innerHTML = [
-    `<span><b>${forms.length}</b> open calls</span>`,
+    `<span><b>${forms.length}</b> open reviewer forms</span>`,
     `<span><b>${forms.filter((r) => r.new).length}</b> new since last run</span>`,
     `<span><b>${data.sites}</b> workshop sites checked</span>`,
-    `<span>updated <b>${gen.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</b></span>`,
+    `<span>checked <b>${gen.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</b></span>`,
   ].join("");
-  $("foot").innerHTML = `Workshops come from OpenReview; forms are labelled by the text around the link, so open the form to confirm it is still accepting answers. ${data.unreachable} sites could not be reached on the last run. Source: <a href="https://github.com/Xiaoyu68/workshop-reviewer-forms" target="_blank" rel="noopener">workshop-reviewer-forms</a>.`;
+  $("foot").innerHTML = `Workshops come from OpenReview. A form counts as a reviewer form when its link text, or the sentence before it, asks for reviewers or program committee members, and it is listed only while Google shows it as accepting responses. ${data.unreachable} sites could not be reached on the last run. Source: <a href="https://github.com/Xiaoyu68/workshop-reviewer-forms" target="_blank" rel="noopener">workshop-reviewer-forms</a>.`;
 
-  for (const id of ["q", "conf", "sort"]) { const v = store("wrf." + id); if (v !== null && v !== undefined) $(id).value = v; }
-  for (const id of ["unknown", "newonly"]) { const v = store("wrf." + id); if (v === "0" || v === "1") $(id).checked = v === "1"; }
+  // While a crawl is still running, show how far it got and pick up new results.
+  if (data.partial) {
+    const pct = Math.round((100 * data.sites) / Math.max(1, data.sites_total));
+    $("progress").hidden = false;
+    $("progress").innerHTML = `<span>Still looking… ${data.sites} of ${data.sites_total} workshop sites checked. This page refreshes itself every minute.</span>
+      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>`;
+    setTimeout(() => location.reload(), 60000);
+  }
+
+  for (const id of ["q", "conf", "sort"]) {
+    const v = store("wrf." + id);
+    if (v && [...($(id).options || [{ value: v }])].some((o) => o.value === v)) $(id).value = v;
+  }
+  if (store("wrf.newonly") === "1") $("newonly").checked = true;
 
   const far = new Date(9999, 0, 1);
   function render() {
     const q = $("q").value.trim().toLowerCase();
     const conf = $("conf").value, sort = $("sort").value;
-    let rows = forms.filter((r) =>
+    const rows = forms.filter((r) =>
       (!conf || r.conference === conf) &&
-      ($("unknown").checked || r.dl) &&
       (!$("newonly").checked || r.new) &&
       (!q || (r.title + " " + r.conference + " " + r.context).toLowerCase().includes(q)));
-    const key = { deadline: (r) => r.dl || far, date: (r) => r.wd || far, found: (r) => -r.fs }[sort];
-    rows.sort((a, b) => key(a) - key(b) || a.title.localeCompare(b.title));
+    const cmp = { date: (a, b) => (a.wd || far) - (b.wd || far), found: (a, b) => b.fs - a.fs }[sort];
+    rows.sort((a, b) => cmp(a, b) || a.title.localeCompare(b.title));
 
     $("list").innerHTML = rows.length ? rows.map(card).join("") :
-      '<div class="empty">No calls match these filters.</div>';
+      '<div class="empty">No forms match these filters.</div>';
     for (const id of ["q", "conf", "sort"]) store("wrf." + id, $(id).value);
-    for (const id of ["unknown", "newonly"]) store("wrf." + id, $(id).checked ? "1" : "0");
+    store("wrf.newonly", $("newonly").checked ? "1" : "0");
   }
 
   function card(r) {
     let stub;
-    if (r.dl) {
-      const n = daysLeft(r.dl);
-      const left = n === 0 ? "today" : n === 1 ? "1 day left" : `${n} days left`;
-      stub = `<div class="stub${n <= 7 ? " soon" : ""}" title="Paper deadline ${fmt(r.dl)}">
-        <span class="mon">${r.dl.toLocaleDateString("en-US", { month: "short" })}</span>
-        <span class="day">${r.dl.getDate()}</span><span class="left">${left}</span></div>`;
+    if (r.wd) {
+      const n = daysLeft(r.wd);
+      const left = n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+      stub = `<div class="stub${n <= 14 ? " soon" : ""}" title="Workshop ${fmt(r.wd)}">
+        <span class="mon">${r.wd.toLocaleDateString("en-US", { month: "short" })}</span>
+        <span class="day">${r.wd.getDate()}</span><span class="left">${left}</span></div>`;
     } else {
-      stub = `<div class="stub unknown"><span class="mon">Deadline</span><span class="day">not listed</span></div>`;
+      stub = `<div class="stub unknown"><span class="mon">Workshop</span><span class="day">date TBA</span></div>`;
     }
     const tags = [`<span class="tag">${esc(r.conference)}</span>`];
     if (r.new) tags.push('<span class="tag new">New</span>');
-    const meta = [r.dl ? `Paper deadline ${fmt(r.dl)}` : null, r.wd ? `Workshop ${fmt(r.wd)}` : null,
-                  `Found ${fmt(r.fs)}`].filter(Boolean).join(" · ");
+    const meta = [r.wd ? `Workshop ${fmt(r.wd)}` : null,
+                  r.dl ? `paper deadline ${fmt(r.dl)}${daysLeft(r.dl) < 0 ? " (passed)" : ""}` : null,
+                  `found ${fmt(r.fs)}`].filter(Boolean).join(" · ");
     return `<article class="row">${stub}
       <div class="body">
         <div class="tags">${tags.join("")}</div>
@@ -230,7 +261,7 @@ function boot(data) {
       </div></article>`;
   }
 
-  for (const id of ["q", "conf", "sort", "unknown", "newonly"]) $(id).addEventListener("input", render);
+  for (const id of ["q", "conf", "sort", "newonly"]) $(id).addEventListener("input", render);
   render();
 }
 

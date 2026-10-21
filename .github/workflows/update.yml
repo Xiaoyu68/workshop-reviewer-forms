@@ -1,6 +1,6 @@
 name: Update page
 
-# Daily: crawl, then deploy site/ to Vercel. Needs repository secrets
+# Daily: crawl and deploy site/ to Vercel as results come in. Needs repository secrets
 # VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID (see README).
 on:
   schedule:
@@ -27,9 +27,9 @@ jobs:
         with:
           python-version: "3.12"
       # The previously published data.json carries "first seen" dates over, so
-      # the page can mark forms that are new since the last run.
-      - name: Find reviewer forms
-        run: python3 find_forms.py --no-notify --no-open ${SITE_URL:+--previous "$SITE_URL/data.json"}
-      - name: Deploy to Vercel
-        working-directory: site
-        run: npx --yes vercel@50.17.1 deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
+      # the page can mark forms that are new since the last run. --publish
+      # redeploys the page every minute while the crawl runs, and once at the end.
+      - name: Find reviewer forms and deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: python3 find_forms.py --no-notify --no-open --publish ./deploy.sh ${SITE_URL:+--previous "$SITE_URL/data.json"}

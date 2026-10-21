@@ -4,14 +4,16 @@
 Pipeline:
   1. Discover workshops from OpenReview: active venues, plus every
      <conference>/<this or next year>/Workshop/ prefix derived from them.
-  2. Look up each workshop's paper deadline (the Submission invitation's due
-     date) and drop the ones whose deadline has passed.
+  2. Keep workshops that have not taken place yet, and look up each one's paper
+     deadline (the Submission invitation's due date) for reference.
   3. Crawl each website: the homepage plus a few same-site pages whose link
      text or URL looks reviewer-related (call for reviewers, PC, committee, ...).
-  4. Pull out forms.gle / docs.google.com/forms links and label each one by the
-     text around it ("reviewer" if it mentions reviewing / program committee).
+  4. Pull out forms.gle / docs.google.com/forms links, label each one by its link
+     text (or the sentence before it), and keep reviewer forms that Google still
+     shows as accepting responses.
   5. Diff against earlier runs, write site/index.html (the viewer), site/data.json
      and state/report.csv, and raise a macOS notification for new reviewer forms.
+     With --publish, the page is also rewritten and published while the crawl runs.
 
 Standard library only. Usage: python3 find_forms.py [--all] [--limit N] [--no-open]
 """
@@ -159,13 +161,15 @@ def fetch_venues(ids):
     return venues
 
 
-def status_of(v, today, grace):
-    """'open' (deadline not passed), 'unknown' (no deadline but upcoming) or None (drop)."""
-    if v["deadline"]:
-        return "open" if v["deadline"] >= today - dt.timedelta(days=grace) else None
+def is_upcoming(v, today):
+    """The workshop has not taken place yet. Whether it still recruits reviewers is
+    decided later by whether its form is still open, not by the paper deadline."""
     if v["start_date"]:
-        return "unknown" if v["start_date"] >= today else None
-    return "unknown" if v["created"] >= today - dt.timedelta(days=180) else None
+        return v["start_date"] >= today
+    # No workshop date: a recent paper deadline or a recently created venue.
+    if v["deadline"]:
+        return v["deadline"] >= today - dt.timedelta(days=120)
+    return v["created"] >= today - dt.timedelta(days=180)
 
 
 # ---------- 2. crawl ----------
@@ -294,6 +298,30 @@ def notify(n):
                    check=False, capture_output=True)
 
 
+class Publisher:
+    """Runs a publish command (e.g. ./deploy.sh) at most every `every` seconds while
+    the crawl is running, without waiting for it, and skips a round if the previous
+    one is still going."""
+
+    def __init__(self, cmd, every):
+        self.cmd, self.every, self.proc = cmd, every, None
+        self.last = time.monotonic()
+
+    def due(self):
+        return bool(self.cmd) and time.monotonic() - self.last >= self.every \
+            and (self.proc is None or self.proc.poll() is not None)
+
+    def publish(self, wait=False):
+        if not self.cmd:
+            return
+        if wait and self.proc is not None:
+            self.proc.wait()
+        self.last = time.monotonic()
+        self.proc = subprocess.Popen(self.cmd, shell=True, cwd=HERE)
+        if wait and self.proc.wait() != 0:
+            print(f"publish command failed: {self.cmd}", file=sys.stderr)
+
+
 def write_site(rows, summary):
     SITE.mkdir(parents=True, exist_ok=True)
     data = {**summary, "forms": rows}
@@ -313,6 +341,10 @@ def main():
     ap.add_argument("--no-notify", action="store_true")
     ap.add_argument("--no-open", action="store_true", help="don't open the page in a browser")
     ap.add_argument("--previous", help="earlier data.json (path or URL) to carry first-seen dates over")
+    ap.add_argument("--publish", metavar="CMD",
+                    help="shell command that publishes site/ (e.g. ./deploy.sh); run during the crawl and at the end")
+    ap.add_argument("--update-every", type=int, default=60, metavar="SEC",
+                    help="with --publish, refresh the published page this often while crawling (default 60)")
     args = ap.parse_args()
     cfg = load_config()
     today = dt.date.today()
@@ -324,11 +356,7 @@ def main():
 
     print("discovering workshops on OpenReview...", file=sys.stderr)
     ids = discover_ids(cfg, today)
-    venues = []
-    for v in fetch_venues(ids):
-        v["status"] = status_of(v, today, cfg.get("deadline_grace_days", 0))
-        if v["status"]:
-            venues.append(v)
+    venues = [v for v in fetch_venues(ids) if is_upcoming(v, today)]
     if args.limit:
         venues = venues[:args.limit]
 
@@ -338,59 +366,83 @@ def main():
     for v in venues:
         by_site.setdefault(v["website"], []).append(v)
     sites = [vs[0] for vs in by_site.values()]
-    print(f"{len(ids)} workshop venues, {len(venues)} with the deadline not passed; "
+    print(f"{len(ids)} workshop venues, {len(venues)} still ahead; "
           f"crawling {len(sites)} websites...", file=sys.stderr)
-    by_form, failures = {}, 0
+    seen = load_seen(args.previous)
+    first_run = not seen
+    far = dt.date(9999, 1, 1)
+    by_form, done, failures = {}, 0, 0
+    keep = (lambda f: True) if args.all else (lambda f: f["kind"] == "reviewer")
+
+    def check(v):
+        forms, err = crawl(v, cfg)
+        # Check forms right away, so every partial page lists only open forms.
+        for f in forms:
+            if keep(f):
+                f["open"] = form_is_open(f["form"])
+        return v, forms, err
+
+    def snapshot():
+        rows = []
+        for r in by_form.values():
+            if keep(r) and r.get("open"):
+                row = {k: x for k, x in r.items() if k not in ("created", "submission_id", "open")}
+                row["first_seen"] = seen.get(r["form"], today.isoformat())
+                row["new"] = not first_run and r["form"] not in seen
+                rows.append(row)
+        rows.sort(key=lambda r: (r["start_date"] or far, r["title"]))
+        return rows
+
+    def summary(partial):
+        return {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+                "today": today.isoformat(), "venues": len(venues), "sites": done,
+                "sites_total": len(sites), "partial": partial, "unreachable": failures,
+                "closed": sum(keep(r) and r.get("open") is False for r in by_form.values())}
+
+    publisher = Publisher(args.publish, args.update_every)
     with cf.ThreadPoolExecutor(cfg["workers"]) as pool:
-        for v, (forms, err) in zip(sites, pool.map(lambda v: crawl(v, cfg), sites)):
+        for fut in cf.as_completed([pool.submit(check, v) for v in sites]):
+            v, forms, err = fut.result()
+            done += 1
             failures += err.startswith("fetch failed")
             group = by_site[v["website"]]
             for f in forms:
                 r = by_form.setdefault(f["form"], {**v, **f})
-                if f["kind"] == "reviewer":
-                    r["kind"] = "reviewer"
+                if f["kind"] == "reviewer" and r["kind"] != "reviewer":
+                    r.update(kind="reviewer", page=f["page"], context=f["context"])
+                if keep(r) and "open" not in r:
+                    r["open"] = form_is_open(r["form"])
                 r["venue_id"] = " ".join(sorted({*r["venue_id"].split(), *(g["venue_id"] for g in group)}))
                 dates = [g["start_date"] for g in group if g["start_date"]]
                 r["start_date"] = r["start_date"] or (min(dates) if dates else None)
-                # The latest open deadline among the venues sharing this site.
+                # The latest deadline among the venues sharing this site.
                 dls = [g["deadline"] for g in group if g["deadline"]]
                 if dls:
-                    r["deadline"], r["status"] = max(dls), "open"
-    rows = [r for r in by_form.values() if args.all or r["kind"] == "reviewer"]
-    # Drop forms Google reports as closed or deleted.
-    with cf.ThreadPoolExecutor(cfg["workers"]) as pool:
-        is_open = list(pool.map(lambda r: form_is_open(r["form"]), rows))
-    closed = sum(not o for o in is_open)
-    rows = [r for r, o in zip(rows, is_open) if o]
+                    r["deadline"] = max(dls)
+            if publisher.due():
+                write_site(snapshot(), summary(partial=True))
+                publisher.publish()
+                print(f"  {done}/{len(sites)} sites, {len(snapshot())} open forms so far", file=sys.stderr)
 
-    seen = load_seen(args.previous)
-    first_run = not seen
+    rows = snapshot()
     for r in rows:
-        r["first_seen"] = seen.get(r["form"], today.isoformat())
-        r["new"] = not first_run and r["form"] not in seen
         seen.setdefault(r["form"], r["first_seen"])
-        r.pop("created", None)
-        r.pop("submission_id", None)
     if not args.limit:
         (STATE / "seen.json").write_text(json.dumps(seen, indent=1, sort_keys=True))
-
-    far = dt.date(9999, 1, 1)
-    rows.sort(key=lambda r: (r["deadline"] or far, r["start_date"] or far, r["title"]))
     with open(STATE / "report.csv", "w", newline="") as fh:
-        w = csv.DictWriter(fh, ["new", "kind", "status", "conference", "title", "deadline", "start_date",
+        w = csv.DictWriter(fh, ["new", "kind", "conference", "title", "start_date", "deadline",
                                 "form", "website", "page", "first_seen", "venue_id", "context"])
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k) for k in w.fieldnames})
 
-    summary = {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-               "today": today.isoformat(), "venues": len(venues), "sites": len(sites),
-               "unreachable": failures, "closed": closed}
-    page = write_site(rows, summary)
+    final = summary(partial=False)
+    page = write_site(rows, final)
+    publisher.publish(wait=True)
     n_rev = sum(r["kind"] == "reviewer" for r in rows)
     n_new = sum(r["new"] and r["kind"] == "reviewer" for r in rows)
-    print(f"{n_rev} open reviewer forms ({n_new} new, {closed} closed ones dropped) from {len(sites)} sites, "
-          f"{failures} unreachable -> {page}", file=sys.stderr)
+    print(f"{n_rev} open reviewer forms ({n_new} new, {final['closed']} closed ones dropped) from "
+          f"{len(sites)} sites, {failures} unreachable -> {page}", file=sys.stderr)
 
     if n_new and not args.no_notify and sys.platform == "darwin":
         notify(n_new)
