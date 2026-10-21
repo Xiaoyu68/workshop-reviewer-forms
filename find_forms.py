@@ -50,6 +50,22 @@ HREF_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",
 TAG_RE = re.compile(r"<[^>]+>")
 DEADLINE_RE = re.compile(r"Submission Deadline:\s*([A-Z][a-z]{2} \d{1,2} \d{4})")
 YEAR_RE = re.compile(r"^(.+?)/(20\d\d)/")
+ANY_YEAR_RE = re.compile(r"(?<!\d)(20\d\d)(?!\d)")
+PAST_EDITION_RE = re.compile(r"previous|past[-_ /]|archive|older|history", re.I)
+# Short years in URL slugs such as "social-sim26" or "cvpr25".
+SLUG_YEAR_RE = re.compile(r"[a-z_-](2\d)(?=[/_-]|$)", re.I)
+
+
+def is_past_edition(text, this_year, slugs=False):
+    """A page or sentence about an earlier edition: it says previous/past/archive,
+    or every year it mentions is before this_year. With slugs, also read two-digit
+    years from URL slugs ("social-sim26")."""
+    if PAST_EDITION_RE.search(text):
+        return True
+    years = {int(y) for y in ANY_YEAR_RE.findall(text)}
+    if slugs:
+        years |= {2000 + int(y) for y in SLUG_YEAR_RE.findall(text)}
+    return bool(years) and max(years) < this_year
 
 
 def load_config():
@@ -243,6 +259,8 @@ def crawl(v, cfg):
     if not site:
         return [], "no website"
     sub_re = re.compile(cfg["subpage_keywords"], re.I)
+    m = YEAR_RE.match(v.get("venue_id", ""))
+    edition = int(m.group(2)) if m else dt.date.today().year
     found, err = {}, ""
     try:
         home, final = get(site)
@@ -252,7 +270,13 @@ def crawl(v, cfg):
     seen = {final.split("#")[0]}
     for href, text in HREF_RE.findall(home):
         url = urllib.parse.urljoin(final, html.unescape(href)).split("#")[0]
-        if url in seen or not same_site(final, url) or not sub_re.search(url + " " + TAG_RE.sub(" ", text)):
+        label_text = url + " " + TAG_RE.sub(" ", text)
+        if url in seen or not same_site(final, url) or not sub_re.search(label_text):
+            continue
+        # Old editions often keep their old (never closed) reviewer forms; compare
+        # against the year of this workshop's own edition.
+        path = urllib.parse.urlparse(url).path
+        if is_past_edition(path, edition, slugs=True) or is_past_edition(TAG_RE.sub(" ", text), edition):
             continue
         seen.add(url)
         if len(seen) > cfg["max_subpages"]:
@@ -264,6 +288,10 @@ def crawl(v, cfg):
             err = "some subpages failed"
     for url, raw in pages:
         for form, kind, ctx in form_links(raw, cfg):
+            # "...reviewers for our next workshop in 2022 (apply through this form)"
+            if kind == "reviewer" and is_past_edition(ctx.rsplit("[", 1)[0][-250:], dt.date.today().year) \
+                    and not PAST_EDITION_RE.search(urllib.parse.urlparse(final).path):
+                kind = "other"
             prev = found.get(form)
             if not prev or (prev["kind"] == "other" and kind == "reviewer"):
                 found[form] = {"form": form, "kind": kind, "page": url, "context": ctx}
