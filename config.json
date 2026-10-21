@@ -1,12 +1,6 @@
 {
-  "openreview_prefixes": [
-    "NeurIPS.cc/2026/Workshop/",
-    "ICLR.cc/2027/Workshop/",
-    "ICML.cc/2027/Workshop/",
-    "thecvf.com/CVPR/2027/Workshop/",
-    "aclweb.org/ACL/2027/Workshop/",
-    "AAAI.org/2027/Workshop/"
-  ],
+  "deadline_grace_days": 0,
+  "extra_prefixes": [],
   "subpage_keywords": "review|committee|call|cfp|\\bpc\\b|volunteer|join|participat|get-involved",
   "reviewer_keywords": "reviewer|reviewing|review for|program committee|\\bPC member|\\bPC\\b|serve as a review",
   "max_subpages": 6,

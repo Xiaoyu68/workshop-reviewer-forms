@@ -1,0 +1,241 @@
+z m<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Workshop Reviewer Calls</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single reading column; each call is a row with its deadline as a
+   left-hand date stub, like an entry in a submission calendar. */
+:root {
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --ink: #17232b;
+  --muted: #5b6b75;
+  --line: #dde3e7;
+  --accent: #0f6a73;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2f0f1;
+  --soon: #b4420f;
+  --soon-soft: #fbe9df;
+  --new: #6b3fa0;
+  --new-soft: #efe7f8;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1619; --surface: #162126; --ink: #e3eaed; --muted: #92a3ab; --line: #263439;
+    --accent: #4fb3bb; --accent-ink: #062226; --accent-soft: #15353a;
+    --soon: #f08a55; --soon-soft: #3a2116; --new: #b896e6; --new-soft: #2b2140;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1619; --surface: #162126; --ink: #e3eaed; --muted: #92a3ab; --line: #263439;
+  --accent: #4fb3bb; --accent-ink: #062226; --accent-soft: #15353a;
+  --soon: #f08a55; --soon-soft: #3a2116; --new: #b896e6; --new-soft: #2b2140;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+h1 { font: 600 clamp(26px, 4vw, 34px)/1.15 var(--font-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 65ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px/1.4 var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); font-weight: 500; }
+
+.controls {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line);
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.controls input[type="search"], .controls select {
+  font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0;
+}
+.controls input[type="search"] { flex: 1 1 220px; }
+.controls select { flex: 0 1 auto; max-width: 100%; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.row {
+  display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 16px; align-items: start;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+}
+.stub { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.stub .day { font-size: 20px; font-weight: 500; line-height: 1.1; }
+.stub .mon { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.stub .left { margin-top: 4px; font-size: 12px; color: var(--accent); }
+.stub.soon .left { color: var(--soon); font-weight: 500; }
+.stub.unknown .day { font-size: 14px; color: var(--muted); }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 500 11px/1 var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.tag.new { background: var(--new-soft); color: var(--new); }
+.tag.unknown { background: var(--soon-soft); color: var(--soon); }
+.title { font-weight: 600; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
+.title a { color: inherit; text-decoration: none; }
+.title a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+details { font-size: 13px; color: var(--muted); }
+details summary { cursor: pointer; width: fit-content; }
+details p { margin: 6px 0 0; padding: 8px 10px; border-left: 2px solid var(--line); overflow-wrap: anywhere; }
+.actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.btn {
+  display: inline-block; text-align: center; white-space: nowrap; text-decoration: none;
+  font: 500 14px/1 var(--font-body); padding: 9px 14px; border-radius: 6px;
+  background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent);
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { filter: brightness(1.08); }
+.empty { padding: 32px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
+footer { font-size: 13px; color: var(--muted); max-width: 65ch; }
+footer a { color: var(--accent); }
+
+@media (max-width: 600px) {
+  .row { grid-template-columns: 64px minmax(0, 1fr); }
+  .actions { grid-column: 1 / -1; flex-direction: row; }
+  .actions .btn { flex: 1; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn { transition: filter .15s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Workshop Reviewer Calls</h1>
+    <p class="lede">Google Forms that upcoming workshops use to recruit reviewers, found on each workshop's own website. Only workshops whose paper deadline has not passed are listed.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="controls" role="search">
+    <input type="search" id="q" placeholder="Search title, conference, topic…" aria-label="Search">
+    <select id="conf" aria-label="Conference"><option value="">All conferences</option></select>
+    <select id="sort" aria-label="Sort">
+      <option value="deadline">Deadline soonest</option>
+      <option value="found">Recently found</option>
+      <option value="date">Workshop date</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="unknown" checked> No deadline listed</label>
+    <label class="toggle"><input type="checkbox" id="newonly"> New only</label>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const $ = (id) => document.getElementById(id);
+const MS_DAY = 86400000;
+const today = new Date(new Date().toDateString());
+const parse = (s) => (s ? new Date(s + "T00:00:00") : null);
+const daysLeft = (d) => Math.round((d - today) / MS_DAY);
+const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
+
+function store(key, val) {
+  try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch (e) { return null; }
+}
+
+function boot(data) {
+  if (!data) {
+    $("list").innerHTML = '<div class="empty">No data yet. Run <code>python3 find_forms.py</code> to build this page.</div>';
+    return;
+  }
+  // Rows whose deadline passed since the page was generated are dropped here too.
+  const forms = data.forms
+    .filter((r) => r.kind === "reviewer")
+    .map((r) => ({ ...r, dl: parse(r.deadline), wd: parse(r.start_date), fs: parse(r.first_seen) }))
+    .filter((r) => !r.dl || daysLeft(r.dl) >= 0);
+
+  const confs = [...new Set(forms.map((r) => r.conference))].sort();
+  $("conf").insertAdjacentHTML("beforeend", confs.map((c) => `<option>${esc(c)}</option>`).join(""));
+
+  const gen = new Date(data.generated);
+  $("stats").innerHTML = [
+    `<span><b>${forms.length}</b> open calls</span>`,
+    `<span><b>${forms.filter((r) => r.new).length}</b> new since last run</span>`,
+    `<span><b>${data.sites}</b> workshop sites checked</span>`,
+    `<span>updated <b>${gen.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</b></span>`,
+  ].join("");
+  $("foot").innerHTML = `Workshops come from OpenReview; forms are labelled by the text around the link, so open the form to confirm it is still accepting answers. ${data.unreachable} sites could not be reached on the last run. Source: <a href="https://github.com/Xiaoyu68/workshop-reviewer-forms" target="_blank" rel="noopener">workshop-reviewer-forms</a>.`;
+
+  for (const id of ["q", "conf", "sort"]) { const v = store("wrf." + id); if (v !== null && v !== undefined) $(id).value = v; }
+  for (const id of ["unknown", "newonly"]) { const v = store("wrf." + id); if (v === "0" || v === "1") $(id).checked = v === "1"; }
+
+  const far = new Date(9999, 0, 1);
+  function render() {
+    const q = $("q").value.trim().toLowerCase();
+    const conf = $("conf").value, sort = $("sort").value;
+    let rows = forms.filter((r) =>
+      (!conf || r.conference === conf) &&
+      ($("unknown").checked || r.dl) &&
+      (!$("newonly").checked || r.new) &&
+      (!q || (r.title + " " + r.conference + " " + r.context).toLowerCase().includes(q)));
+    const key = { deadline: (r) => r.dl || far, date: (r) => r.wd || far, found: (r) => -r.fs }[sort];
+    rows.sort((a, b) => key(a) - key(b) || a.title.localeCompare(b.title));
+
+    $("list").innerHTML = rows.length ? rows.map(card).join("") :
+      '<div class="empty">No calls match these filters.</div>';
+    for (const id of ["q", "conf", "sort"]) store("wrf." + id, $(id).value);
+    for (const id of ["unknown", "newonly"]) store("wrf." + id, $(id).checked ? "1" : "0");
+  }
+
+  function card(r) {
+    let stub;
+    if (r.dl) {
+      const n = daysLeft(r.dl);
+      const left = n === 0 ? "today" : n === 1 ? "1 day left" : `${n} days left`;
+      stub = `<div class="stub${n <= 7 ? " soon" : ""}" title="Paper deadline ${fmt(r.dl)}">
+        <span class="mon">${r.dl.toLocaleDateString("en-US", { month: "short" })}</span>
+        <span class="day">${r.dl.getDate()}</span><span class="left">${left}</span></div>`;
+    } else {
+      stub = `<div class="stub unknown"><span class="mon">Deadline</span><span class="day">not listed</span></div>`;
+    }
+    const tags = [`<span class="tag">${esc(r.conference)}</span>`];
+    if (r.new) tags.push('<span class="tag new">New</span>');
+    const meta = [r.dl ? `Paper deadline ${fmt(r.dl)}` : null, r.wd ? `Workshop ${fmt(r.wd)}` : null,
+                  `Found ${fmt(r.fs)}`].filter(Boolean).join(" · ");
+    return `<article class="row">${stub}
+      <div class="body">
+        <div class="tags">${tags.join("")}</div>
+        <div class="title"><a href="${esc(safeUrl(r.website))}" target="_blank" rel="noopener">${esc(r.title)}</a></div>
+        <div class="meta">${meta}</div>
+        <details><summary>Text around the link</summary><p>${esc(r.context)}</p></details>
+      </div>
+      <div class="actions">
+        <a class="btn" href="${esc(safeUrl(r.form))}" target="_blank" rel="noopener">Open form ↗</a>
+        <a class="btn ghost" href="${esc(safeUrl(r.page))}" target="_blank" rel="noopener">Source page</a>
+      </div></article>`;
+  }
+
+  for (const id of ["q", "conf", "sort", "unknown", "newonly"]) $(id).addEventListener("input", render);
+  render();
+}
+
+if (DATA) boot(DATA);
+else fetch("data.json").then((r) => r.json()).then(boot).catch(() => boot(null));
+</script>
+</body>
+</html>

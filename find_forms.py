@@ -2,17 +2,18 @@
 """Find Google Forms that upcoming workshops use to recruit reviewers.
 
 Pipeline:
-  1. Discover workshops from OpenReview (active venues + configured prefixes).
-     Each venue group carries its website, start date and submission deadline.
-  2. Keep workshops that have not happened yet.
+  1. Discover workshops from OpenReview: active venues, plus every
+     <conference>/<this or next year>/Workshop/ prefix derived from them.
+  2. Look up each workshop's paper deadline (the Submission invitation's due
+     date) and drop the ones whose deadline has passed.
   3. Crawl each website: the homepage plus a few same-site pages whose link
      text or URL looks reviewer-related (call for reviewers, PC, committee, ...).
   4. Pull out forms.gle / docs.google.com/forms links and label each one by the
      text around it ("reviewer" if it mentions reviewing / program committee).
-  5. Diff against state/seen.json, write state/report.md + report.csv, and
-     raise a macOS notification when new reviewer forms appear.
+  5. Diff against earlier runs, write site/index.html (the viewer), site/data.json
+     and state/report.csv, and raise a macOS notification for new reviewer forms.
 
-Standard library only. Usage: python3 find_forms.py [--all] [--limit N]
+Standard library only. Usage: python3 find_forms.py [--all] [--limit N] [--no-open]
 """
 import argparse
 import concurrent.futures as cf
@@ -20,15 +21,20 @@ import csv
 import datetime as dt
 import html
 import json
+import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 STATE = HERE / "state"
+SITE = HERE / "site"
 API = "https://api2.openreview.net"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) workshop-reviewer-forms/1.0"
 
@@ -37,6 +43,7 @@ FORM_RE = re.compile(
 HREF_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.I | re.S)
 TAG_RE = re.compile(r"<[^>]+>")
 DEADLINE_RE = re.compile(r"Submission Deadline:\s*([A-Z][a-z]{2} \d{1,2} \d{4})")
+YEAR_RE = re.compile(r"^(.+?)/(20\d\d)/")
 
 
 def load_config():
@@ -49,37 +56,78 @@ def get(url, timeout=20):
         return r.read(3_000_000).decode(r.headers.get_content_charset() or "utf-8", "replace"), r.geturl()
 
 
-def api(path):
-    return json.loads(get(API + path, timeout=60)[0])
+def api(path, tries=6):
+    # OpenReview rate-limits bursts with 429; back off and retry.
+    for attempt in range(tries):
+        try:
+            return json.loads(get(API + path, timeout=60)[0])
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt == tries - 1:
+                raise
+            time.sleep(float(e.headers.get("Retry-After") or 2 ** attempt))
+
+
+def from_ms(ms):
+    return dt.datetime.fromtimestamp(ms / 1000, dt.timezone.utc).date()
 
 
 # ---------- 1. discovery ----------
 
-def discover_ids(cfg):
-    ids = set()
+def prefix_ids(prefix):
+    ids, offset = set(), 0
+    while True:
+        q = urllib.parse.urlencode({"prefix": prefix, "limit": 1000, "offset": offset})
+        groups = api(f"/groups?{q}")["groups"]
+        # Only the workshop venue itself, not its Reviewers/Authors/... subgroups.
+        ids.update(g["id"] for g in groups if g["id"].count("/") == prefix.rstrip("/").count("/") + 1)
+        if len(groups) < 1000:
+            return ids
+        offset += 1000
+
+
+def discover_ids(cfg, today):
     members = api("/groups?id=active_venues")["groups"][0]["members"]
-    ids.update(m for m in members if "/Workshop/" in m)
-    for prefix in cfg["openreview_prefixes"]:
-        offset = 0
-        while True:
-            q = urllib.parse.urlencode({"prefix": prefix, "limit": 1000, "offset": offset})
-            groups = api(f"/groups?{q}")["groups"]
-            # Only the workshop venue itself, not its Reviewers/Authors/... subgroups.
-            ids.update(g["id"] for g in groups if g["id"].count("/") == prefix.rstrip("/").count("/") + 1)
-            if len(groups) < 1000:
-                break
-            offset += 1000
+    ids = {m for m in members if "/Workshop/" in m}
+    # Workshops of a conference are not always listed as active (e.g. before
+    # their CFP opens), so scan <root>/<year>/Workshop/ for every conference
+    # root that has workshops, for this year and next.
+    roots = {m.group(1) for m in map(YEAR_RE.match, ids) if m}
+    prefixes = {f"{r}/{y}/Workshop/" for r in roots for y in (today.year, today.year + 1)}
+    prefixes.update(cfg.get("extra_prefixes", []))
+    with cf.ThreadPoolExecutor(4) as pool:
+        for found in pool.map(prefix_ids, sorted(prefixes)):
+            ids |= found
     return sorted(ids)
 
 
 def parse_date(s):
     # OpenReview stores start_date either as "Jun 03 2026" or as epoch milliseconds.
     if isinstance(s, (int, float)):
-        return dt.datetime.fromtimestamp(s / 1000, dt.timezone.utc).date()
+        return from_ms(s)
     try:
         return dt.datetime.strptime(str(s).strip(), "%b %d %Y").date()
     except ValueError:
         return None
+
+
+def conference_of(venue_id):
+    # "thecvf.com/CVPR/2026/Workshop/X" -> "CVPR 2026", "NeurIPS.cc/2026/..." -> "NeurIPS 2026"
+    m = YEAR_RE.match(venue_id)
+    if not m:
+        return venue_id.split("/")[0]
+    name = m.group(1).split("/")[-1]
+    name = re.sub(r"\.(cc|org|com|net|ws|io|fr|de)$", "", name)
+    return f"{name} {m.group(2)}"
+
+
+def submission_deadlines(inv_ids):
+    out = {}
+    for i in range(0, len(inv_ids), 50):
+        q = urllib.parse.urlencode({"ids": ",".join(inv_ids[i:i + 50]), "expired": "true"})
+        for inv in api(f"/invitations?{q}").get("invitations", []):
+            if inv.get("duedate"):
+                out[inv["id"]] = from_ms(inv["duedate"])
+    return out
 
 
 def fetch_venues(ids):
@@ -91,23 +139,29 @@ def fetch_venues(ids):
             m = DEADLINE_RE.search(str(c.get("date") or ""))
             venues.append({
                 "venue_id": g["id"],
+                "conference": conference_of(g["id"]),
                 "title": c.get("title") or g["id"].rsplit("/", 1)[-1],
                 "website": (c.get("website") or "").strip(),
                 "start_date": parse_date(c.get("start_date") or ""),
-                "created": dt.datetime.fromtimestamp(g.get("cdate", 0) / 1000, dt.timezone.utc).date(),
+                "created": from_ms(g.get("cdate", 0)),
                 "deadline": parse_date(m.group(1)) if m else None,
+                "submission_id": c.get("submission_id") or g["id"] + "/-/Submission",
             })
+    # The Submission invitation's due date is the real paper deadline; the
+    # free-text "date" field above is only a fallback.
+    due = submission_deadlines(sorted({v["submission_id"] for v in venues}))
+    for v in venues:
+        v["deadline"] = due.get(v["submission_id"], v["deadline"])
     return venues
 
 
-def is_upcoming(v, today):
-    # Prefer the workshop date; without one, a paper deadline in the last ~4 months
-    # or a venue created in the last ~7 months still means it may be recruiting.
-    if v["start_date"]:
-        return v["start_date"] >= today
+def status_of(v, today, grace):
+    """'open' (deadline not passed), 'unknown' (no deadline but upcoming) or None (drop)."""
     if v["deadline"]:
-        return v["deadline"] >= today - dt.timedelta(days=120)
-    return v["created"] >= today - dt.timedelta(days=210)
+        return "open" if v["deadline"] >= today - dt.timedelta(days=grace) else None
+    if v["start_date"]:
+        return "unknown" if v["start_date"] >= today else None
+    return "unknown" if v["created"] >= today - dt.timedelta(days=180) else None
 
 
 # ---------- 2. crawl ----------
@@ -173,27 +227,63 @@ def crawl(v, cfg):
 
 # ---------- 3. report ----------
 
+def load_seen(previous):
+    """form -> first-seen date, from state/seen.json and/or a previous data.json (path or URL)."""
+    seen_path = HERE / "state" / "seen.json"
+    seen = json.loads(seen_path.read_text()) if seen_path.exists() else {}
+    if previous:
+        try:
+            raw = get(previous)[0] if previous.startswith("http") else Path(previous).read_text()
+            for r in json.loads(raw)["forms"]:
+                seen.setdefault(r["form"], r["first_seen"])
+        except Exception as e:  # noqa: BLE001 - a missing previous run just means everything is new
+            print(f"no previous data from {previous}: {type(e).__name__}", file=sys.stderr)
+    return seen
+
+
 def notify(n):
-    msg = f"{n} new workshop reviewer form(s) - see state/report.md"
+    msg = f"{n} new workshop reviewer form(s) - see site/index.html"
     subprocess.run(["osascript", "-e", f'display notification "{msg}" with title "Workshop reviewer forms"'],
                    check=False, capture_output=True)
 
 
+def write_site(rows, summary):
+    SITE.mkdir(parents=True, exist_ok=True)
+    data = {**summary, "forms": rows}
+    payload = json.dumps(data, ensure_ascii=False, default=str)
+    (SITE / "data.json").write_text(payload)
+    page = (HERE / "page_template.html").read_text()
+    # Embed the data so the page also works when opened straight from disk.
+    embedded = payload.replace("</", "<\\/")
+    (SITE / "index.html").write_text(page.replace("/*__DATA__*/null", embedded))
+    return SITE / "index.html"
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--all", action="store_true", help="also list forms not labelled reviewer")
+    ap.add_argument("--all", action="store_true", help="also show forms not labelled reviewer")
     ap.add_argument("--limit", type=int, default=0, help="crawl only the first N workshops (testing)")
     ap.add_argument("--no-notify", action="store_true")
+    ap.add_argument("--no-open", action="store_true", help="don't open the page in a browser")
+    ap.add_argument("--previous", help="earlier data.json (path or URL) to carry first-seen dates over")
     args = ap.parse_args()
     cfg = load_config()
     today = dt.date.today()
-    STATE.mkdir(exist_ok=True)
+    global STATE, SITE
+    if args.limit:
+        # A partial test run must not overwrite the real report or the seen list.
+        STATE = SITE = HERE / "state" / "test"
+    STATE.mkdir(parents=True, exist_ok=True)
 
-    ids = discover_ids(cfg)
-    venues = [v for v in fetch_venues(ids) if is_upcoming(v, today)]
+    print("discovering workshops on OpenReview...", file=sys.stderr)
+    ids = discover_ids(cfg, today)
+    venues = []
+    for v in fetch_venues(ids):
+        v["status"] = status_of(v, today, cfg.get("deadline_grace_days", 0))
+        if v["status"]:
+            venues.append(v)
     if args.limit:
         venues = venues[:args.limit]
-    print(f"{len(ids)} workshop venues on OpenReview, {len(venues)} upcoming; crawling...", file=sys.stderr)
 
     # Several OpenReview venues (main track, ARR commitment, shared task) often
     # share one website, so crawl each site once and merge rows per form.
@@ -201,6 +291,8 @@ def main():
     for v in venues:
         by_site.setdefault(v["website"], []).append(v)
     sites = [vs[0] for vs in by_site.values()]
+    print(f"{len(ids)} workshop venues, {len(venues)} with the deadline not passed; "
+          f"crawling {len(sites)} websites...", file=sys.stderr)
     by_form, failures = {}, 0
     with cf.ThreadPoolExecutor(cfg["workers"]) as pool:
         for v, (forms, err) in zip(sites, pool.map(lambda v: crawl(v, cfg), sites)):
@@ -213,45 +305,45 @@ def main():
                 r["venue_id"] = " ".join(sorted({*r["venue_id"].split(), *(g["venue_id"] for g in group)}))
                 dates = [g["start_date"] for g in group if g["start_date"]]
                 r["start_date"] = r["start_date"] or (min(dates) if dates else None)
+                # The latest open deadline among the venues sharing this site.
                 dls = [g["deadline"] for g in group if g["deadline"]]
-                r["deadline"] = r["deadline"] or (max(dls) if dls else None)
-    rows = list(by_form.values())
+                if dls:
+                    r["deadline"], r["status"] = max(dls), "open"
+    rows = [r for r in by_form.values() if args.all or r["kind"] == "reviewer"]
 
-    seen_path = STATE / "seen.json"
-    seen = json.loads(seen_path.read_text()) if seen_path.exists() else {}
+    seen = load_seen(args.previous)
     first_run = not seen
     for r in rows:
         r["first_seen"] = seen.get(r["form"], today.isoformat())
-        r["new"] = r["form"] not in seen
-        seen.setdefault(r["form"], today.isoformat())
-    seen_path.write_text(json.dumps(seen, indent=1, sort_keys=True))
+        r["new"] = not first_run and r["form"] not in seen
+        seen.setdefault(r["form"], r["first_seen"])
+        r.pop("created", None)
+        r.pop("submission_id", None)
+    if not args.limit:
+        (STATE / "seen.json").write_text(json.dumps(seen, indent=1, sort_keys=True))
 
-    shown = [r for r in rows if args.all or r["kind"] == "reviewer"]
     far = dt.date(9999, 1, 1)
-    shown.sort(key=lambda r: (not r["new"] or first_run, r["start_date"] or far, r["title"]))
-
+    rows.sort(key=lambda r: (r["deadline"] or far, r["start_date"] or far, r["title"]))
     with open(STATE / "report.csv", "w", newline="") as fh:
-        w = csv.DictWriter(fh, ["new", "kind", "title", "venue_id", "deadline", "start_date",
-                                "form", "website", "page", "first_seen", "context"])
+        w = csv.DictWriter(fh, ["new", "kind", "status", "conference", "title", "deadline", "start_date",
+                                "form", "website", "page", "first_seen", "venue_id", "context"])
         w.writeheader()
-        for r in sorted(rows, key=lambda r: (r["kind"] != "reviewer", r["start_date"] or far)):
-            w.writerow({k: r[k] for k in w.fieldnames})
+        for r in rows:
+            w.writerow({k: r.get(k) for k in w.fieldnames})
 
-    lines = [f"# Workshop reviewer forms — {today}", "",
-             f"{len(venues)} upcoming workshop venues ({len(sites)} sites) crawled ({failures} sites unreachable); "
-             f"{sum(r['kind'] == 'reviewer' for r in rows)} reviewer forms, "
-             f"{sum(r['new'] and r['kind'] == 'reviewer' for r in rows)} new.", "",
-             "| new | workshop | workshop date | paper deadline | form |", "|---|---|---|---|---|"]
-    for r in shown:
-        title = r["title"].replace("|", "/")
-        lines.append(f"| {'🆕' if r['new'] and not first_run else ''} | [{title}]({r['website']}) "
-                     f"| {r['start_date'] or '?'} | {r['deadline'] or '?'} | {r['form']} |")
-    (STATE / "report.md").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines))
+    summary = {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+               "today": today.isoformat(), "venues": len(venues), "sites": len(sites),
+               "unreachable": failures}
+    page = write_site(rows, summary)
+    n_rev = sum(r["kind"] == "reviewer" for r in rows)
+    n_new = sum(r["new"] and r["kind"] == "reviewer" for r in rows)
+    print(f"{n_rev} reviewer forms ({n_new} new) from {len(sites)} sites, "
+          f"{failures} unreachable -> {page}", file=sys.stderr)
 
-    new_rev = sum(r["new"] and r["kind"] == "reviewer" for r in rows)
-    if new_rev and not first_run and not args.no_notify:
-        notify(new_rev)
+    if n_new and not args.no_notify and sys.platform == "darwin":
+        notify(n_new)
+    if not args.no_open and not os.environ.get("CI"):
+        webbrowser.open(page.as_uri())
 
 
 if __name__ == "__main__":
