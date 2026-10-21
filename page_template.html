@@ -9,38 +9,38 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
 <style>
 /* Layout: one soft column of rounded cards; each call carries its workshop date
-   as a little pastel ticket on the left, like a sticker on a planner page. */
+   as a small ticket on the left, like a sticker on a planner page. */
 :root {
-  --bg: #fff6f8;
+  --bg: #f4f7fb;
   --surface: #ffffff;
-  --ink: #3d2a40;
-  --muted: #8b7490;
-  --line: #f4dbe5;
-  --accent: #d94f86;
+  --ink: #23304a;
+  --muted: #6b7890;
+  --line: #dfe6f1;
+  --accent: #4864d4;
   --accent-ink: #ffffff;
-  --accent-soft: #ffe4ef;
-  --soon: #d9692a;
-  --soon-soft: #ffecdc;
-  --new: #7b5ad6;
-  --new-soft: #eee7ff;
-  --shadow: 0 6px 18px -10px rgba(217, 79, 134, 0.35);
+  --accent-soft: #e5ebfc;
+  --soon: #c8602a;
+  --soon-soft: #fdebdf;
+  --new: #23896a;
+  --new-soft: #dcf3ea;
+  --shadow: 0 6px 18px -12px rgba(35, 48, 74, 0.28);
   --font-display: "Fredoka", "Nunito", ui-rounded, system-ui, sans-serif;
   --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1e1621; --surface: #2a1f2e; --ink: #f7e9f2; --muted: #bba4c0; --line: #3e2e44;
-    --accent: #ff8fb8; --accent-ink: #2b0f1c; --accent-soft: #4a2338;
-    --soon: #ffb27a; --soon-soft: #45291a; --new: #c4abff; --new-soft: #352a52;
+    --bg: #131a26; --surface: #1c2433; --ink: #e6ecf6; --muted: #98a5bb; --line: #2c3649;
+    --accent: #8ea4ff; --accent-ink: #0f1830; --accent-soft: #263257;
+    --soon: #f3a06e; --soon-soft: #3d2719; --new: #6fd3ae; --new-soft: #173a30;
     --shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #1e1621; --surface: #2a1f2e; --ink: #f7e9f2; --muted: #bba4c0; --line: #3e2e44;
-  --accent: #ff8fb8; --accent-ink: #2b0f1c; --accent-soft: #4a2338;
-  --soon: #ffb27a; --soon-soft: #45291a; --new: #c4abff; --new-soft: #352a52;
+  --bg: #131a26; --surface: #1c2433; --ink: #e6ecf6; --muted: #98a5bb; --line: #2c3649;
+  --accent: #8ea4ff; --accent-ink: #0f1830; --accent-soft: #263257;
+  --soon: #f3a06e; --soon-soft: #3d2719; --new: #6fd3ae; --new-soft: #173a30;
   --shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
@@ -58,7 +58,6 @@ header { display: flex; flex-direction: column; gap: 8px; }
 .hello { font: 600 14px/1 var(--font-display); color: var(--accent); letter-spacing: 0.02em; }
 h1 { font: 600 clamp(28px, 5vw, 40px)/1.12 var(--font-display); margin: 0; text-wrap: balance; }
 h1 .for { display: block; font-size: 0.62em; color: var(--accent); margin-top: 4px; }
-h1 .for::after { content: " \2661"; }
 .lede { margin: 0; color: var(--muted); max-width: 62ch; }
 .stats { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
@@ -104,7 +103,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag { font: 700 11px/1 var(--font-body); letter-spacing: 0.03em; padding: 5px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .tag.new { background: var(--new-soft); color: var(--new); }
-.tag.new::before { content: "\2726 "; }
 .title { font: 600 17px/1.3 var(--font-display); overflow-wrap: anywhere; }
 .title a { color: inherit; text-decoration: none; }
 .title a:hover { color: var(--accent); }
